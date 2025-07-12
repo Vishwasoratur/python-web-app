@@ -1,0 +1,21 @@
+# argocd-app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: python-web-app # Name of the application in ArgoCD UI
+  namespace: argocd # ArgoCD should be running in this namespace
+spec:
+  project: default # The ArgoCD project this app belongs to
+  source:
+    repoURL: https://github.com/Vishwasoratur/python-web-app.git # IMPORTANT: Replace with your actual repo URL
+    targetRevision: HEAD # Monitor the main branch
+    path: k8s # The path within this repository where your Kubernetes manifests are located
+  destination:
+    server: https://kubernetes.default.svc # The in-cluster Kubernetes API server
+    namespace: default # The namespace where your application will be deployed
+  syncPolicy:
+    automated: # Enable automated sync
+      prune: true # Delete resources that are no longer in Git
+      selfHeal: true # Automatically sync if the live state drifts from Git
+    syncOptions:
+      - CreateNamespace=true # Optional: Create the target namespace if it doesn't exist
