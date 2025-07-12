@@ -1,0 +1,91 @@
+
+name: Python App Monorepo CI/CD
+
+on:
+  push:
+    branches:
+      - main # Trigger on push to main branch
+    paths-ignore: # Do not run CI if only K8s manifests are changed (ArgoCD will handle those)
+      - 'k8s/**'
+      - 'argocd-app.yaml'
+  workflow_dispatch: # Allows manual trigger
+
+env:
+  # Replace with your Docker Hub username or ghcr.io/<your-github-username>
+  # Example: 'your-docker-username/python-web-app' or 'ghcr.io/your-github-username/python-web-app'
+  IMAGE_NAME: your-docker-username/python-web-app
+  # This is the current repository itself for checkout and push back
+  THIS_REPO: ${{ github.repository }}
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Grant write permission for pushing manifest changes
+
+    steps:
+      - name: Checkout application code and manifests
+        uses: actions/checkout@v4
+        with:
+          # Use a Personal Access Token (PAT) here for pushing changes back to the same repo
+          # The default GITHUB_TOKEN has read-only access to workflow-triggering repo
+          token: ${{ secrets.REPO_WRITE_PAT }} # See Secret Setup below
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run Unit Tests
+        run: pytest
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        id: docker_build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }} # Tag with commit SHA for immutability
+
+      - name: Scan Docker image for vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: 'table'
+          exit-code: '1' # Fail if any CRITICAL/HIGH vulnerabilities are found
+          severity: 'CRITICAL,HIGH' # Adjust severity as needed
+          vuln-type: 'os,library'
+
+      - name: Update Kubernetes deployment manifest with new image tag
+        run: |
+          cd k8s # Navigate into the k8s directory within the same repo
+          # Replace the image tag in deployment.yaml
+          sed -i "s|image: .*/python-web-app:.*|image: ${{ env.IMAGE_NAME }}:${{ github.sha }}|g" deployment.yaml
+          # Verify the change
+          echo "Updated deployment.yaml:"
+          cat deployment.yaml
+
+      - name: Commit and push changes to repository
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add k8s/deployment.yaml # Add the modified deployment file
+          git commit -m "chore(ci): Update python-web-app image to ${{ github.sha }}" || echo "No changes to commit"
+          git push origin main
