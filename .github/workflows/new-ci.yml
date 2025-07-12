@@ -13,7 +13,7 @@ on:
 env:
   # Replace with your Docker Hub username or ghcr.io/<your-github-username>
   # Example: 'your-docker-username/python-web-app' or 'ghcr.io/your-github-username/python-web-app'
-  IMAGE_NAME: your-docker-username/python-web-app
+  IMAGE_NAME: vishwa275/python-web-app
   # This is the current repository itself for checkout and push back
   THIS_REPO: ${{ github.repository }}
 
