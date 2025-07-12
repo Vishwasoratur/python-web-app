@@ -1,0 +1,47 @@
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-web-app
+  labels:
+    app: python-web-app
+spec:
+  replicas: 1 # You can adjust this for scaling
+  selector:
+    matchLabels:
+      app: python-web-app
+  template:
+    metadata:
+      labels:
+        app: python-web-app
+    spec:
+      containers:
+      - name: python-web-app
+        # This image name will be updated by GitHub Actions.
+        # Ensure it matches the format used in your GitHub Actions workflow.
+        image: your-docker-username/python-web-app:latest # Placeholder: This will be replaced by CI
+        ports:
+        - containerPort: 5000
+        resources: # Define resource requests and limits for production stability
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        readinessProbe: # For production readiness checks (app ready to serve traffic)
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe: # For production liveness checks (app is still running and responsive)
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
