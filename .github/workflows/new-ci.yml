@@ -26,10 +26,8 @@ jobs:
     steps:
       - name: Checkout application code and manifests
         uses: actions/checkout@v4
-        with:
-          # Use a Personal Access Token (PAT) here for pushing changes back to the same repo
-          # The default GITHUB_TOKEN has read-only access to workflow-triggering repo
-          token: ${{ secrets.REPO_WRITE_PAT }} # See Secret Setup below
+        # No 'with: token:' needed here. It will use GITHUB_TOKEN by default
+        # because you set 'permissions: contents: write' at the job level.
 
       - name: Set up Python
         uses: actions/setup-python@v5
