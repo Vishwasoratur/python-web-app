@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: python-web-app
+  namespace: default  # <--- ADD THIS LINE FOR DEPLOYMENT
   labels:
     app: python-web-app
 spec:
