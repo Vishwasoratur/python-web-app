@@ -1,0 +1,5 @@
+Flask==2.3.3
+gunicorn==21.2.0
+SQLAlchemy==2.0.29
+Flask-SQLAlchemy==3.1.1
+pytest==8.2.2
