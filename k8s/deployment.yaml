@@ -19,7 +19,7 @@ spec:
       - name: python-web-app
         # This image name will be updated by GitHub Actions.
         # Ensure it matches the format used in your GitHub Actions workflow.
-        image: your-docker-username/python-web-app:latest # Placeholder: This will be replaced by CI
+        image: vishwa275/python-web-app:a88fe1f520cbb3391b9a47d3bc590cd197602a40
         ports:
         - containerPort: 5000
         resources: # Define resource requests and limits for production stability
