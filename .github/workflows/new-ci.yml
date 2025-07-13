@@ -14,6 +14,11 @@ jobs:
   build-test-deploy:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
+    permissions: # <--- ADD THIS BLOCK
+      contents: write # <--- THIS GRANTS WRITE PERMISSION TO THE GITHUB_TOKEN
+      # If you were interacting with issues or pull requests, you might also need:
+      # issues: write
+      # pull-requests: write
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -65,9 +70,7 @@ jobs:
         format: 'table' # Output format
         exit-code: '1' # Fail the workflow if vulnerabilities with specified severity are found
         severity: 'CRITICAL,HIGH' # Only consider Critical and High severity vulnerabilities
-        # --- ADDED THIS LINE TO IGNORE UNFIXED VULNERABILITIES ---
-        ignore-unfixed: true
-        # ---------------------------------------------------------
+        ignore-unfixed: true # Ignore unfixed vulnerabilities
 
     # --- Continuous Deployment (CD) Steps for GitOps with ArgoCD ---
     # These steps update your Kubernetes manifest in the Git repository with the new image tag.
