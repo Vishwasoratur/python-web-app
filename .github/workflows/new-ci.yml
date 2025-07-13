@@ -1,90 +1,105 @@
-
 name: Python App Monorepo CI/CD
 
+# Controls when the workflow will run
 on:
   push:
     branches:
-      - main # Trigger on push to main branch
-    paths-ignore: # Do not run CI if only K8s manifests are changed (ArgoCD will handle those)
-      - 'k8s/**'
-      - 'argocd-app.yaml'
-  workflow_dispatch: # Allows manual trigger
+      - main # Trigger on pushes to the 'main' branch. Change if your main branch is named differently (e.g., master).
+  pull_request:
+    branches:
+      - main # Also run on pull requests to 'main' for early feedback
 
-env:
-  # Replace with your Docker Hub username or ghcr.io/<your-github-username>
-  # Example: 'your-docker-username/python-web-app' or 'ghcr.io/your-github-username/python-web-app'
-  IMAGE_NAME: vishwa275/python-web-app
-  # This is the current repository itself for checkout and push back
-  THIS_REPO: ${{ github.repository }}
-
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build-test-deploy:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # Grant write permission for pushing manifest changes
 
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - name: Checkout application code and manifests
-        uses: actions/checkout@v4
-        # No 'with: token:' needed here. It will use GITHUB_TOKEN by default
-        # because you set 'permissions: contents: write' at the job level.
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9' # Ensure this matches the Python version your application uses
 
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install --no-cache-dir -r requirements.txt # --no-cache-dir saves space and time in CI
 
-      - name: Run Unit Tests
-        run: pytest
+    - name: Run tests
+      run: pytest # Executes your pytest tests
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    # --- START: Debugging step for the 'COPY' error ---
+    # This step is temporary. Once the 'COPY' error (lstat /#: no such file or directory)
+    # is resolved by finding and renaming the problematic file/folder, you can remove this step.
+    - name: List files for debugging (Temporary)
+      run: ls -laR . # This will list all files and directories recursively, including hidden ones
+    # --- END: Debugging step ---
 
-      - name: Log in to Docker Registry
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image
-        id: docker_build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          load: true
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }} # GitHub Secret for your Docker Hub username
+        password: ${{ secrets.DOCKERHUB_TOKEN }}   # GitHub Secret for your Docker Hub Access Token
 
-      - name: Scan Docker image for vulnerabilities (Trivy)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }} # <--- CHANGE THIS LINE
-          format: 'table'
-          output: 'trivy-results.txt'
-          # Add this line to make the step pass even if vulnerabilities are found
-          exit-code: 0
-          
-      - name: Update Kubernetes deployment manifest with new image tag
-        run: |
-          cd k8s # Navigate into the k8s directory within the same repo
-          # Replace the image tag in deployment.yaml
-          sed -i "s|image: .*/python-web-app:.*|image: ${{ env.IMAGE_NAME }}:${{ github.sha }}|g" deployment.yaml
-          # Verify the change
-          echo "Updated deployment.yaml:"
-          cat deployment.yaml
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: . # Build context is the current directory (root of the repo)
+        push: true # Push the built image to Docker Hub
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/python-web-app:latest,${{ secrets.DOCKERHUB_USERNAME }}/python-web-app:${{ github.sha }}
+        # The image will be tagged with 'latest' and also with the full Git SHA for uniqueness
 
-      - name: Commit and push changes to repository
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add k8s/deployment.yaml # Add the modified deployment file
-          git commit -m "chore(ci): Update python-web-app image to ${{ github.sha }}" || echo "No changes to commit"
-          git push origin main
+    - name: Scan Docker image for vulnerabilities (Trivy)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ secrets.DOCKERHUB_USERNAME }}/python-web-app:${{ github.sha }}' # Scan the newly built image
+        format: 'table' # Output format
+        exit-code: '1' # Fail the workflow if vulnerabilities with specified severity are found
+        severity: 'CRITICAL,HIGH' # Only consider Critical and High severity vulnerabilities
+
+    # --- Continuous Deployment (CD) Steps for GitOps with ArgoCD ---
+    # These steps update your Kubernetes manifest in the Git repository with the new image tag.
+    # ArgoCD, which monitors your Git repository, will then detect this change and deploy the new image.
+    - name: Install yq for YAML manipulation
+      run: |
+        # Try installing yq using snap (common on Ubuntu runners for modern systems)
+        sudo snap install yq || true
+        # Fallback: Try apt-get if snap fails or isn't available/preferred
+        sudo apt-get update && sudo apt-get install -y yq || true
+        # Ensure yq is callable for the next step. If neither works, consider a different approach
+        # or pre-install yq on a custom runner.
+
+    - name: Update Kubernetes deployment manifest with new image tag
+      run: |
+        # Assumes your deployment.yaml is in the 'k8s/' directory
+        # And the image is located under .spec.template.spec.containers[0].image
+        # This command updates the 'image' field for the first container in your deployment.yaml
+        yq e '.spec.template.spec.containers[0].image = "${{ secrets.DOCKERHUB_USERNAME }}/python-web-app:${{ github.sha }}"' -i k8s/deployment.yaml
+        echo "Updated k8s/deployment.yaml with new image: ${{ secrets.DOCKERHUB_USERNAME }}/python-web-app:${{ github.sha }}"
+
+    - name: Commit and push changes to repository
+      run: |
+        git config user.name github-actions # Set Git user for the commit
+        git config user.email github-actions@github.com # Set Git email
+        git add k8s/deployment.yaml # Stage the modified deployment file
+        # Commit changes. '|| true' prevents the step from failing if no changes were made (e.g., if re-running)
+        git commit -m "Update deployment.yaml with new image tag ${{ github.sha }}" || true
+        git push # Push the committed changes to the remote repository
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Use the default GITHUB_TOKEN provided by GitHub Actions for pushing
+
+    # Note on ArgoCD Sync:
+    # With a GitOps approach, ArgoCD typically monitors your Git repository
+    # (e.g., the 'k8s/' directory) and automatically synchronizes your cluster
+    # when changes like the updated deployment.yaml are pushed.
+    # Therefore, an explicit 'argocd app sync' command is often not needed here.
+    # If your ArgoCD setup requires manual triggers, you would add a step here
+    # to interact with the ArgoCD API or CLI (e.g., using 'argocd-action' or 'argocd login' and 'argocd app sync').
