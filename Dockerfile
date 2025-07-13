@@ -6,7 +6,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . . # This line should copy app.py and the new 'templates' folder
+COPY . . 
+# This line should copy app.py and the new 'templates' folder
 
 EXPOSE 5000
 
