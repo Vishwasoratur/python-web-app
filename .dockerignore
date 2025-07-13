@@ -1,8 +1,7 @@
-__pycache__/
-*.pyc
-*.log
-.venv/
-venv/
 .git/
-.gitignore
 .pytest_cache/
+__pycache__/
+instance/
+*.pyc
+*.swp
+.vscode/
