@@ -1,5 +1,5 @@
 # python-web-app/Dockerfile
-FROM python:3.9-slim-bullseye
+FROM python:3.9-slim-bookworm
 
 WORKDIR /app
 
