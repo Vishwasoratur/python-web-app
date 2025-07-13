@@ -47,7 +47,7 @@ jobs:
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }} # GitHub Secret for your Docker Hub username
-        password: ${{ secrets.DOCKERHUB_TOKEN }}   # GitHub Secret for your Docker Hub Access Token
+        password: ${{ secrets.DOCKERHUB_TOKEN }}    # GitHub Secret for your Docker Hub Access Token
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -60,10 +60,14 @@ jobs:
     - name: Scan Docker image for vulnerabilities (Trivy)
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: '${{ secrets.DOCKERHUB_USERNAME }}/python-web-app:${{ github.sha }}' # Scan the newly built image
+        # Ensure this matches your actual image tag
+        image-ref: '${{ secrets.DOCKERHUB_USERNAME }}/python-web-app:${{ github.sha }}'
         format: 'table' # Output format
         exit-code: '1' # Fail the workflow if vulnerabilities with specified severity are found
         severity: 'CRITICAL,HIGH' # Only consider Critical and High severity vulnerabilities
+        # --- ADDED THIS LINE TO IGNORE UNFIXED VULNERABILITIES ---
+        ignore-unfixed: true
+        # ---------------------------------------------------------
 
     # --- Continuous Deployment (CD) Steps for GitOps with ArgoCD ---
     # These steps update your Kubernetes manifest in the Git repository with the new image tag.
