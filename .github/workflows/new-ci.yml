@@ -38,13 +38,6 @@ jobs:
     - name: Run tests
       run: pytest # Executes your pytest tests
 
-    # --- START: Debugging step for the 'COPY' error ---
-    # This step is temporary. Once the 'COPY' error (lstat /#: no such file or directory)
-    # is resolved by finding and renaming the problematic file/folder, you can remove this step.
-    - name: List files for debugging (Temporary)
-      run: ls -laR . # This will list all files and directories recursively, including hidden ones
-    # --- END: Debugging step ---
-
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
