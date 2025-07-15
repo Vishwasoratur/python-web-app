@@ -63,7 +63,7 @@ To run the application locally for development and testing:
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/Vishwasoratur/python-web-app.git](https://github.com/Vishwasoratur/python-web-app.git)
+    git clone https://github.com/Vishwasoratur/python-web-app.git
     cd python-web-app
     ```
 2.  **Create a Python virtual environment:**
