@@ -21,7 +21,7 @@ spec:
           # This image name will be updated by GitHub Actions.
 
           # Ensure it matches the format used in your GitHub Actions workflow.
-          image: vishwa275/python-web-app:c25dc9ba17d98969aa6220c98d99dcb968cd153a
+          image: vishwa275/python-web-app:3ffbbffbba81a407a0c1e8cc52c08f2de3f3de83
           ports:
             - containerPort: 5000
           resources: # Define resource requests and limits for production stability
