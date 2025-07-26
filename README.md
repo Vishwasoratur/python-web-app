@@ -86,7 +86,7 @@ To run the application locally for development and testing:
 To run the unit and integration tests:
 
 1.  Ensure you have followed the "Getting Started" steps to set up your virtual environment and install dependencies.
-2.  Run `pytest`:
+2.  Run `pytest`: 
     ```bash
     pytest
     ```
